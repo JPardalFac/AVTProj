@@ -28,6 +28,9 @@
 #include "VertexAttrDef.h"
 #include "basic_geometry.h"
 
+//classes defined by us
+#include "camera.h"
+
 #define CAPTION "AVT Light Demo"
 int WindowHandle = 0;
 int WinX = 640, WinY = 480;
@@ -160,14 +163,22 @@ void sendMatrices() {
 
 void renderScene(void) {
 
-
 	FrameCount++;
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	// load identity matrices
 	loadIdentity(VIEW);
 	loadIdentity(MODEL);
 	// set the camera using a function similar to gluLookAt
-	lookAt(camX, camY, camZ, 0, 0, 0, 0, 1, 0);
+	/*lookAt( sin(angle) * 10, 4, cos(angle) * 10 ,
+			0, 0, 0, 
+			0, 1, 0); //first try to follow the car*/
+	/*lookAt( 0, 3, 5,
+			0, 0, 0,
+			0, 1, 0); // default: (camX, camY, camZ, 0, 0, 0, 0, 1, 0)*/
+	lookAt(mesh[0].transform[12], mesh[0].transform[13] + 1, mesh[0].transform[14],
+		mesh[0].transform[12], mesh[0].transform[13], -mesh[0].transform[14],
+		0, 0, -1);//lookAt here makes the camera a child of the car
+
 	// use our shader
 	glUseProgram(shader.getProgramIndex());
 
@@ -186,6 +197,7 @@ void renderScene(void) {
 	translate(MODEL, 2.0f, 0.0f, 2.0f);
 	rotate(MODEL, angle, 0, 90, 0);
 	sendMatrices();
+
 	drawObj(0);
 
 	//draw car wheels
@@ -238,6 +250,9 @@ void processKeys(unsigned char key, int xx, int yy)
 		break;
 	case 'm': glEnable(GL_MULTISAMPLE); break;
 	case 'n': glDisable(GL_MULTISAMPLE); break;
+	/*case '1': fixedOrtho(); break;
+	case '2': fixedPerspective(); break;
+	case '3': movingPerspective(); break;*/
 	}
 }
 
@@ -453,7 +468,7 @@ void drawSnitch()
 	//body
 	sendMaterial(6);					//send materials to the shader
 	pushMatrix(MODEL);					//pushmatrix
-	translate(MODEL, 0.0f, 1.0f, 0.0f);//apply translation to the body, in the model stack
+	//translate(MODEL, 0.0f, 1.0f, 0.0f);//apply translation to the body, in the model stack
 	rotate(MODEL, angle, 1, 0, 0);
 	sendMatrices();						//send matrices to the shader
 	drawObj(6);							//draw body
@@ -508,7 +523,7 @@ void init()
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
 	glEnable(GL_MULTISAMPLE);
-	glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+	glClearColor(1.0f, 1.0f, 1.0f, 0.0f);
 
 }
 
