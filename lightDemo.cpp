@@ -15,7 +15,7 @@
 #include <sstream>
 
 #include <string>
-
+#include <math.h> 
 // include GLEW to access OpenGL 3.3 functions
 #include <GL/glew.h>
 
@@ -27,17 +27,19 @@
 #include "AVTmathLib.h"
 #include "VertexAttrDef.h"
 #include "basic_geometry.h"
-
-//classes defined by us
 #include "camera.h"
 
 #define CAPTION "AVT Light Demo"
+#define PI 3.1415926
+
 int WindowHandle = 0;
 int WinX = 640, WinY = 480;
 
 unsigned int FrameCount = 0;
 
-
+float ratio = 0;
+float* pratio = &ratio;
+camera* cam = new camera();
 
 VSShaderLib shader;
 
@@ -47,8 +49,18 @@ int objId = 0; //id of the object mesh - to be used as index of mesh: mesh[objID
 
 //wheels deviations from car body
 float dev = 0.5f;
-float xpos[4] = {0.5f+dev,0.5f+dev,-0.5f+dev,-0.5f+dev};
-float ypos[4] = { 0.5f+dev,-0.5f+dev,0.5f+dev,-0.5f+dev };
+
+float xpos[4] = { 0.5f ,0.5f ,-0.5f,-0.5f  };
+float ypos[4] = { 0.5f ,-0.5f ,0.5f,-0.5f  };
+
+//car pos and rot
+float currentPos[3] = {.5f, .5f, -.5f};
+float currentRot = 0;
+float currentRotAxis[3] = {0.0f,1.0f,0.0f};
+
+enum direction { back, forward, left, right };
+float speed = 0.5f;
+bool move_forward = false, move_back = false, rot_left = false, rot_right = false;
 
 //External array storage defined in AVTmathLib.cpp
 
@@ -81,16 +93,16 @@ long myTime, timebase = 0, frame = 0;
 char s[32];
 float lightPos[4] = { 4.0f, 6.0f, 2.0f, 1.0f };
 
-void drawSnitch();	//early declaration of the function
+//test variables
+int angle = 0;
 
-float angle = 0;
-
-void Timer(int value) 
+void Timer(int value)
 {
-	angle += 2.5f;
+	angle += 2;
 	glutPostRedisplay();
 	glutTimerFunc(100, Timer, 0);
 }
+
 
 void timer(int value)
 {
@@ -116,16 +128,15 @@ void refresh(int value)
 
 void changeSize(int w, int h) {
 
-	float ratio;
 	// Prevent a divide by zero, when window is too short
 	if (h == 0)
 		h = 1;
 	// set the viewport to be the entire window
 	glViewport(0, 0, w, h);
 	// set the projection matrix
-	ratio = (1.0f * w) / h;
+	*pratio = (1.0f * w) / h;
 	loadIdentity(PROJECTION);
-	perspective(53.13f, ratio, 0.1f, 1000.0f);
+	cam->updateProjection(pratio);
 }
 
 
@@ -134,6 +145,45 @@ void changeSize(int w, int h) {
 // Render stufff
 //
 
+void moveCar(int direction) {
+	float dx, dy;
+	switch (direction) {
+	case back:
+		dy = (double)(cos(currentRot * PI / 180.0) * speed);
+		dx = (double)(sin(currentRot * PI / 180.0) * speed);
+		currentPos[0] += dx;
+		currentPos[2] += dy;
+		break;
+	case forward:
+		dy = (double)(cos(currentRot * PI / 180.0) * speed);
+		dx = (double)(sin(currentRot * PI / 180.0) * speed);
+		currentPos[0] -= dx;
+		currentPos[2] -= dy;
+		break;
+	case left:
+		currentRot += 1;
+		if (currentRot > 360) 
+		{
+			currentRot = 0;
+		}
+		break;
+	case right:
+		currentRot -= 1; 
+		if (currentRot < 0)
+		{
+			currentRot = 360;
+		}
+		break;
+	}
+}
+
+void checkMovements() {
+	if (move_forward) moveCar(forward);
+	else if (move_back) moveCar(back);
+	if (rot_left) moveCar(left);
+	else if (rot_right) moveCar(right);
+
+}
 
 void sendMaterial(int index) {
 	GLint loc;
@@ -163,22 +213,15 @@ void sendMatrices() {
 
 void renderScene(void) {
 
+
 	FrameCount++;
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	// load identity matrices
 	loadIdentity(VIEW);
 	loadIdentity(MODEL);
 	// set the camera using a function similar to gluLookAt
-	/*lookAt( sin(angle) * 10, 4, cos(angle) * 10 ,
-			0, 0, 0, 
-			0, 1, 0); //first try to follow the car*/
-	/*lookAt( 0, 3, 5,
-			0, 0, 0,
-			0, 1, 0); // default: (camX, camY, camZ, 0, 0, 0, 0, 1, 0)*/
-	lookAt(mesh[0].transform[12], mesh[0].transform[13] + 1, mesh[0].transform[14],
-		mesh[0].transform[12], mesh[0].transform[13], -mesh[0].transform[14],
-		0, 0, -1);//lookAt here makes the camera a child of the car
-
+	//lookAt(camX, camY, camZ, 0, 0, 0, 0, 1, 0);
+	cam->updateLookAt(currentPos);
 	// use our shader
 	glUseProgram(shader.getProgramIndex());
 
@@ -190,19 +233,20 @@ void renderScene(void) {
 	multMatrixPoint(VIEW, lightPos, res);   //lightPos definido em World Coord so is converted to eye space
 	glUniform4fv(lPos_uniformId, 1, res);
 
+	checkMovements();
 
 	//draw car body
 	sendMaterial(0);
 	pushMatrix(MODEL);
-	translate(MODEL, 2.0f, 0.0f, 2.0f);
-	rotate(MODEL, angle, 0, 90, 0);
+	translate(MODEL, currentPos[0] , currentPos[1], currentPos[2]);
+	rotate(MODEL, currentRot, currentRotAxis[0], currentRotAxis[1], currentRotAxis[2]);
+	//rotate(MODEL,90,0,90,0);
 	sendMatrices();
-
 	drawObj(0);
 
 	//draw car wheels
 	int x=0, y=0;
-	for (int i = 1; i <= 4; i++) {
+	for (int i = 4; i >= 1; i--) {
 
 		pushMatrix(MODEL);
 		sendMaterial(i);
@@ -219,18 +263,17 @@ void renderScene(void) {
 	}
 	//draw table
 	popMatrix(MODEL);
-	pushMatrix(MODEL);
 	sendMaterial(5);
-	translate(MODEL, 2.0f, -0.1f, 2.0f);
+
+	//translate(MODEL, 2.0f, -0.1f, 2.0f);
 	rotate(MODEL,-90,1,0,0);
+	scale(MODEL, 10, 7, 1);
 	sendMatrices();
 	drawObj(5);
-	popMatrix(MODEL);
-
-	drawSnitch();
-
 	glutSwapBuffers();
 }
+
+
 
 // ------------------------------------------------------------
 //
@@ -250,10 +293,56 @@ void processKeys(unsigned char key, int xx, int yy)
 		break;
 	case 'm': glEnable(GL_MULTISAMPLE); break;
 	case 'n': glDisable(GL_MULTISAMPLE); break;
-	/*case '1': fixedOrtho(); break;
-	case '2': fixedPerspective(); break;
-	case '3': movingPerspective(); break;*/
+	case 'a':
+		move_forward = false;
+		move_back = true;
+		break;
+	case 'q':
+		move_forward = true; 
+		move_back = false;
+		break;
+	case 'o': 
+		rot_left = true; 
+		rot_right = false; 
+		break;
+	case 'p': 
+		rot_left = false; 
+		rot_right = true; 
+		break; 
+	case '1': 
+		cam->setFixedOrtho();
+		cam->setCameraType(cam->FIXEDORTHO);
+		break;
+	case '2': 
+		cam->setFixedPerspective(pratio);
+		cam->setCameraType(cam->FIXEDPERSPECTIVE); 
+		break;
+	case '3': 
+		cam->setMovingPerspective(pratio);
+		cam->setCameraType(cam->MOVINGPERSPECTIVE); 
+		break;
 	}
+
+}
+
+void processKeysUp(unsigned char key, int xx, int yy)
+{
+	switch (key) {
+
+	case 'a':
+		move_back = false;
+		break;
+	case 'q':
+		move_forward = false;
+		break;
+	case 'o':
+		rot_left = false;
+		break;
+	case 'p':
+		rot_right = false;
+		break;
+	}
+
 }
 
 
@@ -303,8 +392,6 @@ void processMouseMotion(int xx, int yy)
 
 	// left mouse button: move camera
 	if (tracking == 1) {
-
-
 		alphaAux = alpha + deltaX;
 		betaAux = beta + deltaY;
 
@@ -357,8 +444,8 @@ GLuint setupShaders() {
 
 	// Shader for models
 	shader.init();
-	shader.loadShader(VSShaderLib::VERTEX_SHADER, "C:\\Users\\Faculdade.JOAOPARDALLAPTO\\Documents\\AVT\\Lab02_0210\\Lab02\\shaders\\pointlight.vert");
-	shader.loadShader(VSShaderLib::FRAGMENT_SHADER, "C:\\Users\\Faculdade.JOAOPARDALLAPTO\\Documents\\AVT\\Lab02_0210\\Lab02\\shaders\\pointlight.frag");
+	shader.loadShader(VSShaderLib::VERTEX_SHADER, "shaders/pointlight.vert");
+	shader.loadShader(VSShaderLib::FRAGMENT_SHADER, "shaders/pointlight.frag");
 
 	// set semantics for the shader variables
 	glBindFragDataLocation(shader.getProgramIndex(), 0, "colorOut");
@@ -380,9 +467,9 @@ GLuint setupShaders() {
 
 void createCar() {
 
-	float amb[] = { 0.2f, 0.15f, 0.1f, 1.0f };
-	float diff[] = { 0.8f, 0.6f, 0.4f, 1.0f };
-	float spec[] = { 0.8f, 0.8f, 0.8f, 1.0f };
+	float amb[] = { 0.8f, 0.1f, 0.1f, 1.0f };
+	float diff[] = { 0.8f, 0.1f, 0.1f, 1.0f };
+	float spec[] = { 0.8f, 0.1f, 0.1f, 1.0f };
 	float emissive[] = { 0.0f, 0.0f, 0.0f, 1.0f };
 	float shininess = 100.0f;
 	int texcount = 0;
@@ -394,7 +481,8 @@ void createCar() {
 	memcpy(mesh[objId].mat.emissive, emissive, 4 * sizeof(float));
 	mesh[objId].mat.shininess = shininess;
 	mesh[objId].mat.texCount = texcount;
-	createCube();
+	createQuad(1,1);
+	//createCube();
 
 	//WHEELS//	
 	objId = 1;
@@ -434,57 +522,6 @@ void createCar() {
 	createTorus(0.1, 0.2, 15, 5);
 }
 
-void copyArrayOfFloats(float amb[], float dif[], float spec[], float emi[], float shin, MyMesh &toThis) {
-	memcpy(toThis.mat.ambient, amb, sizeof(float) * 4);
-	memcpy(toThis.mat.diffuse, dif, sizeof(float) * 4);
-	memcpy(toThis.mat.specular, spec, sizeof(float) * 4);
-	memcpy(toThis.mat.emissive, emi, sizeof(float) * 4);
-	toThis.mat.shininess = shin;
-}
-
-void createSnitch() 
-{
-	//define the material components for the snitch
-	float ambient[] = {0.9f, 0.5f, 0.0f, 1.0f };
-	float diffuse[] = { 0.9f, 0.5f, 0.0f, 1.0f };
-	float specular[] = { 0.9f, 0.4f, 0.0f, 1.0f };
-	float emissive[] = { 0.0f, 0.0f, 0.0f, 1.0f };
-	float shininess = 100.0f;
-
-	//body 
-	objId = 6; //THIS IS WROOOOOOOOOONG , it should be something like objId++; can't be 5 because of the tabletop
-	//objId++; //add a objId to be used on the mesh 
-	copyArrayOfFloats(ambient, diffuse, specular, emissive, shininess, mesh[objId]);	//copy materials to its mesh.materials component to be used by the shader
-	//createSphere(1, 20); //create the shape of each component
-	createTorus(.3, .6, 15, 5);
-	//wing1
-	objId = 7;
-	copyArrayOfFloats(ambient, diffuse, specular, emissive, shininess, mesh[objId]);
-	createCone(1.0f, 1.0f, 10);
-}
-
-void drawSnitch()
-{
-	//body
-	sendMaterial(6);					//send materials to the shader
-	pushMatrix(MODEL);					//pushmatrix
-	//translate(MODEL, 0.0f, 1.0f, 0.0f);//apply translation to the body, in the model stack
-	rotate(MODEL, angle, 1, 0, 0);
-	sendMatrices();						//send matrices to the shader
-	drawObj(6);							//draw body
-	
-	/*	//wing1
-		sendMaterial(7);
-		pushMatrix(MODEL);			//push
-		translate(MODEL, 0.0f, 0.5f, 0);
-		sendMatrices();
-		drawObj(7);				//draw wing1
-		popMatrix(MODEL);//pop
-	*/
-	//repeat for wing2
-	popMatrix(MODEL);
-}
-
 // ------------------------------------------------------------
 //
 // Model loading and OpenGL setup
@@ -498,15 +535,14 @@ void init()
 	camY = r *   						     sin(beta * 3.14f / 180.0f);
 
 
-	float amb[] = { 0.2f, 0.15f, 0.1f, 1.0f };
-	float diff[] = { 0.8f, 0.6f, 0.4f, 1.0f };
-	float spec[] = { 0.8f, 0.8f, 0.8f, 1.0f };
+	float amb[] = { 0.2f, 0.2f, 0.2f, 1.0f };
+	float diff[] = { 0.2f, 0.2f, 0.2f, 1.0f };
+	float spec[] = { 0.2f, 0.2f, 0.2f, 1.0f };
 	float emissive[] = { 0.0f, 0.0f, 0.0f, 1.0f };
 	float shininess = 100.0f;
 	int texcount = 0;
 	
 	createCar();
-	createSnitch();
 
 	//table
 	objId=5;
@@ -523,7 +559,7 @@ void init()
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
 	glEnable(GL_MULTISAMPLE);
-	glClearColor(1.0f, 1.0f, 1.0f, 0.0f);
+	glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 
 }
 
@@ -547,7 +583,6 @@ int main(int argc, char **argv) {
 	glutInitWindowSize(WinX, WinY);
 	WindowHandle = glutCreateWindow(CAPTION);
 
-
 	//  Callback Registration
 	glutDisplayFunc(renderScene);
 	glutReshapeFunc(changeSize);
@@ -555,13 +590,13 @@ int main(int argc, char **argv) {
 
 //	Mouse and Keyboard Callbacks
 	glutKeyboardFunc(processKeys);
+	glutKeyboardUpFunc(processKeysUp);
 	glutMouseFunc(processMouseButtons);
 	glutMotionFunc(processMouseMotion);
 	glutMouseWheelFunc(mouseWheel);
 	glutTimerFunc(0, timer, 0);
 	glutTimerFunc(0, refresh, 0);
-	Timer(0);
-
+	glutTimerFunc(0, Timer, 0);
 
 	//	return from main loop
 	glutSetOption(GLUT_ACTION_ON_WINDOW_CLOSE, GLUT_ACTION_GLUTMAINLOOP_RETURNS);
@@ -584,6 +619,5 @@ int main(int argc, char **argv) {
 	glutMainLoop();
 
 	return(0);
-
 }
 
