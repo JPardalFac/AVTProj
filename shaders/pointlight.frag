@@ -12,6 +12,7 @@ struct Materials {
 };
 
 uniform Materials mat;
+uniform bool directionalLightOn;
 
 in Data {
 	vec3 normal;
@@ -27,15 +28,19 @@ void main() {
 	vec3 l = normalize(DataIn.lightDir);
 	vec3 e = normalize(DataIn.eye);
 
-	float intensity = max(dot(n,l), 0.0);
+	if(directionalLightOn){
+		float intensity = max(dot(n,l), 0.0);
 
-	
-	if (intensity > 0.0) {
+		
+		if (intensity > 0.0) {
 
-		vec3 h = normalize(l + e);
-		float intSpec = max(dot(h,n), 0.0);
-		spec = mat.specular * pow(intSpec, mat.shininess);
+			vec3 h = normalize(l + e);
+			float intSpec = max(dot(h,n), 0.0);
+			spec = mat.specular * pow(intSpec, mat.shininess);
+		}
+		
+		colorOut = max(intensity * mat.diffuse + spec, mat.ambient);
 	}
-	
-	colorOut = max(intensity * mat.diffuse + spec, mat.ambient);
+	else
+		colorOut = mat.ambient;
 }

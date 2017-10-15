@@ -56,6 +56,7 @@ float ypos[4] = { 0.5f ,-0.5f ,0.5f,-0.5f  };
 //car pos and rot
 float currentPos[3] = {.5f, .5f, -.5f};
 float currentRot = 0;
+float rotInc = 3;
 float currentRotAxis[3] = {0.0f,1.0f,0.0f};
 
 enum direction { back, forward, left, right };
@@ -75,6 +76,7 @@ GLint pvm_uniformId;
 GLint vm_uniformId;
 GLint normal_uniformId;
 GLint lPos_uniformId;
+GLint directionalLightOn_uniformId;
 
 // Cameras Position
 float camX, camY, camZ;
@@ -91,7 +93,8 @@ float r = 10.0f;
 // Frame counting and FPS computation
 long myTime, timebase = 0, frame = 0;
 char s[32];
-float lightPos[4] = { 4.0f, 6.0f, 2.0f, 1.0f };
+bool isDirLightOn = true;
+float lightPos[4] = { 4.0f, 6.0f, 2.0f, 0.0f };//switched from the default pointlight(w = 1) to a directional light (w = 0)
 
 //test variables
 int angle = 0;
@@ -102,7 +105,6 @@ void Timer(int value)
 	glutPostRedisplay();
 	glutTimerFunc(100, Timer, 0);
 }
-
 
 void timer(int value)
 {
@@ -161,14 +163,14 @@ void moveCar(int direction) {
 		currentPos[2] -= dy;
 		break;
 	case left:
-		currentRot += 1;
+		currentRot += rotInc;
 		if (currentRot > 360) 
 		{
 			currentRot = 0;
 		}
 		break;
 	case right:
-		currentRot -= 1; 
+		currentRot -= rotInc; 
 		if (currentRot < 0)
 		{
 			currentRot = 360;
@@ -209,6 +211,16 @@ void sendMatrices() {
 	glUniformMatrix4fv(pvm_uniformId, 1, GL_FALSE, mCompMatrix[PROJ_VIEW_MODEL]);
 	computeNormalMatrix3x3();
 	glUniformMatrix3fv(normal_uniformId, 1, GL_FALSE, mNormal3x3);
+}
+
+//called when directional light is toggled on/off, sends the new value to the shader
+void sendDirectionalLightToggle() 
+{
+	if (isDirLightOn)
+		glUniform1i(directionalLightOn_uniformId, 0);
+	else
+		glUniform1i(directionalLightOn_uniformId, 1);
+	isDirLightOn = !isDirLightOn;
 }
 
 void renderScene(void) {
@@ -292,7 +304,7 @@ void processKeys(unsigned char key, int xx, int yy)
 		printf("Camera Spherical Coordinates (%f, %f, %f)\n", alpha, beta, r);
 		break;
 	case 'm': glEnable(GL_MULTISAMPLE); break;
-	case 'n': glDisable(GL_MULTISAMPLE); break;
+	//case 'n': glDisable(GL_MULTISAMPLE); break;
 	case 'a':
 		move_forward = false;
 		move_back = true;
@@ -320,6 +332,9 @@ void processKeys(unsigned char key, int xx, int yy)
 	case '3': 
 		cam->setMovingPerspective(pratio);
 		cam->setCameraType(cam->MOVINGPERSPECTIVE); 
+		break;
+	case 'n':
+		sendDirectionalLightToggle();
 		break;
 	}
 
@@ -459,6 +474,9 @@ GLuint setupShaders() {
 	vm_uniformId = glGetUniformLocation(shader.getProgramIndex(), "m_viewModel");
 	normal_uniformId = glGetUniformLocation(shader.getProgramIndex(), "m_normal");
 	lPos_uniformId = glGetUniformLocation(shader.getProgramIndex(), "l_pos");
+	directionalLightOn_uniformId = glGetUniformLocation(shader.getProgramIndex(), "directionalLightOn");
+
+	glUniform1i(directionalLightOn_uniformId, true);
 
 	printf("InfoLog for Hello World Shader\n%s\n\n", shader.getAllInfoLogs().c_str());
 
@@ -467,11 +485,11 @@ GLuint setupShaders() {
 
 void createCar() {
 
-	float amb[] = { 0.8f, 0.1f, 0.1f, 1.0f };
-	float diff[] = { 0.8f, 0.1f, 0.1f, 1.0f };
-	float spec[] = { 0.8f, 0.1f, 0.1f, 1.0f };
+	float amb[] = { 0.3f, 0.0f, 0.0f, 1.0f };
+	float diff[] = { 0.5f, 0.0f, 0.0f, 1.0f };
+	float spec[] = { 0.7f, 0.6f, 0.6f, 1.0f };
 	float emissive[] = { 0.0f, 0.0f, 0.0f, 1.0f };
-	float shininess = 100.0f;
+	float shininess = 32.0f;
 	int texcount = 0;
 
 	objId = 0;
@@ -536,10 +554,10 @@ void init()
 
 
 	float amb[] = { 0.2f, 0.2f, 0.2f, 1.0f };
-	float diff[] = { 0.2f, 0.2f, 0.2f, 1.0f };
-	float spec[] = { 0.2f, 0.2f, 0.2f, 1.0f };
+	float diff[] = { 0.5f, 0.5f, 0.5f, 1.0f };
+	float spec[] = { 0.7f, 0.7f, 0.7f, 1.0f };
 	float emissive[] = { 0.0f, 0.0f, 0.0f, 1.0f };
-	float shininess = 100.0f;
+	float shininess = 32.0f;
 	int texcount = 0;
 	
 	createCar();
