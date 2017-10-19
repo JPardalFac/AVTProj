@@ -22,6 +22,7 @@ public:
 	void setMovingPerspective(float* ratio);
 	void updateLookAt(float carPos[]);
 	void updateProjection(float* ratio);
+	void sendCamCoords(float x, float y, float z);
 	camera();
 	~camera();
 };

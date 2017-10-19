@@ -28,6 +28,7 @@
 #include "VertexAttrDef.h"
 #include "basic_geometry.h"
 #include "camera.h"
+#include "Object.h"
 
 #define CAPTION "AVT Light Demo"
 #define PI 3.1415926
@@ -40,6 +41,7 @@ unsigned int FrameCount = 0;
 float ratio = 0;
 float* pratio = &ratio;
 camera* cam = new camera();
+//Object track[NUM_OF_];
 
 VSShaderLib shader;
 
@@ -233,6 +235,8 @@ void renderScene(void) {
 	loadIdentity(MODEL);
 	// set the camera using a function similar to gluLookAt
 	//lookAt(camX, camY, camZ, 0, 0, 0, 0, 1, 0);
+	if (cam->activeCam == cam->MOVINGPERSPECTIVE)
+		cam->sendCamCoords(camX, camY, camZ);
 	cam->updateLookAt(currentPos);
 	// use our shader
 	glUseProgram(shader.getProgramIndex());
@@ -431,7 +435,7 @@ void processMouseMotion(int xx, int yy)
 	camY = rAux *   						       sin(betaAux * 3.14f / 180.0f);
 
 	//  uncomment this if not using an idle func
-	//	glutPostRedisplay();
+		glutPostRedisplay();
 }
 
 

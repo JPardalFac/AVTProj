@@ -23,6 +23,7 @@
     <ClInclude Include="basic_geometry.h" />
     <ClInclude Include="camera.h" />
     <ClInclude Include="cube.h" />
+    <ClInclude Include="Object.h" />
     <ClInclude Include="VertexAttrDef.h" />
     <ClInclude Include="vsShaderLib.h" />
   </ItemGroup>
@@ -31,6 +32,7 @@
     <ClCompile Include="basic_geometry.cpp" />
     <ClCompile Include="camera.cpp" />
     <ClCompile Include="lightDemo.cpp" />
+    <ClCompile Include="Object.cpp" />
     <ClCompile Include="vsShaderLib.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">

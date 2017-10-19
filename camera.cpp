@@ -66,6 +66,11 @@ void camera::updateProjection(float * ratio)
 	}
 }
 
+void camera::sendCamCoords(float x, float y, float z)
+{
+
+}
+
 camera::camera()
 {
 }
